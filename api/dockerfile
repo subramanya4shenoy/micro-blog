@@ -1,0 +1,16 @@
+# Get the lightweight ython image first
+FROM python:3.11-slim
+
+# Set the working directory inside the container
+WORKDIR /app
+
+# copy dependancy file into container
+COPY requirements.txt .
+
+# Install dependancy
+RUN pip3 install -r requirements.txt
+
+COPY . .
+
+# Start app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

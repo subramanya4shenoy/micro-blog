@@ -1,0 +1,25 @@
+services:
+  api:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    container_name: microblog_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./env/dev.env
+  
+  db:
+    image: postgres:15
+    container_name: microblog_db
+    environment:
+      POSTGRES_USER: microblog
+      POSTGRES_PASSWORD: microblog
+      POSTGRES_DB: microblog
+    ports:
+      - "5433:5432"
+    volumes:
+      - microblog_db_data:/var/lib/postgresql/data
+
+volumes:
+  microblog_db_data:
