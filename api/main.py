@@ -3,7 +3,7 @@ from database import check_db_connection
 import psycopg2
 import os
 from pydantic import BaseModel
-from routers import posts
+from routers import posts, users
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -34,3 +34,4 @@ def db_health():
         raise HTTPException(status_code=500, detail=f"DB error: {e}")
 
 app.include_router(posts.router)
+app.include_router(users.router)
