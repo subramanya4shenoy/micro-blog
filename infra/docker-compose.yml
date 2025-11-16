@@ -20,6 +20,7 @@ services:
       - "5433:5432"
     volumes:
       - microblog_db_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
 
 volumes:
   microblog_db_data:
