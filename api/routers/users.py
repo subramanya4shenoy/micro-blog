@@ -1,12 +1,15 @@
 import os
-from fastapi import APIRouter, HTTPException, status
-import psycopg2
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, status, Depends
+from pydantic import BaseModel, EmailStr
+from sqlalchemy.orm import Session
+
 from auth import hash_password, verify_password, create_access_token
+from database import get_db
+from models import User
 
 class UserSignup(BaseModel):
     username: str
-    email: str
+    email: EmailStr
     password: str
 
 class UserLogin(BaseModel):
@@ -16,68 +19,47 @@ class UserLogin(BaseModel):
 class UserOut(BaseModel):
     id: int
     username: str
-    email: str
+    email: EmailStr
 
 router = APIRouter()
 
-def get_db_conn():
-    return psycopg2.connect(os.getenv("DATABASE_URL"))
 
-def _get_user_by_identifier (identifier: str):
-    conn = get_db_conn()
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT id, username, email, password_hash FROM users WHERE username = %s OR email = %s", (identifier, identifier),)
-    row = cursor.fetchone()
-
-    cursor.close()
-    conn.close()
-    return row
+def _get_user_by_identifier (db: Session, identifier: str) -> User | None:
+    return (db.query(User).filter((User.username == identifier) | (User.email == identifier)).first())
 
 
 @router.post("/signup", response_model=UserOut, status_code=status.HTTP_201_CREATED)
-def signup(user: UserSignup):
-    conn = get_db_conn()
-    cursor = conn.cursor()
-    
-    cursor.execute("SELECT id FROM users WHERE username = %s OR email = %s", (user.username, user.username), )
+def signup(user: UserSignup,  db: Session = Depends(get_db)):
 
-    is_existing_user = cursor.fetchone()
+    is_existing_user = db.query(User).filter((User.username == user.username) | (User.email == user.email)).first()
 
     if is_existing_user:
-        cursor.close()
-        conn.close()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username or email already exist")
-
-    hashed_password = hash_password(user.password)
-
-    cursor.execute("INSERT INTO users (username, email, password_hash) VALUES (%s, %s, %s) RETURNING id, username, email", (user.username, user.email, hashed_password),)
-    created_user = cursor.fetchone()
-
-    conn.commit()
     
-    cursor.close()
-    conn.close()
+    hashed_password = hash_password(user.password)
+    new_user = User(username=user.username, email=user.email, password_hash=hashed_password)
 
-    return UserOut(id=created_user[0], username=created_user[1], email=created_user[2])
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return UserOut(id=new_user.id, username=new_user.username, email=new_user.email)
 
 @router.post("/login")
-def login(credentials: UserLogin):
-    row = _get_user_by_identifier(credentials.username_or_email)
-    if row is None:
+def login(credentials: UserLogin, db: Session = Depends(get_db)):
+    user = _get_user_by_identifier(db, credentials.username_or_email)
+    if user is None:
         raise HTTPException(detail="invalid credentials", status_code=status.HTTP_401_UNAUTHORIZED)
     
-    user_id, username, email, password_hash = row
-
-    if not verify_password(credentials.password, password_hash):
+    if not verify_password(credentials.password, user.password_hash):
         raise HTTPException(detail="invalid credentials", status_code=status.HTTP_401_UNAUTHORIZED)
     
-    access_token = create_access_token({"sub": str(user_id)})
+    access_token = create_access_token({"sub": str(user.id)})
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "user": {"id": user_id, "username": username, "email": email}
+        "user": {"id": user.id, "username": user.username, "email": user.email}
     }
 
 
