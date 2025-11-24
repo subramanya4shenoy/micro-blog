@@ -1,89 +1,81 @@
-from datetime import datetime
-from sqlalchemy import or_ 
-from typing import Optional, List
-from pydantic import BaseModel
+from typing import Literal, Optional
 from fastapi import Depends, Query, HTTPException, APIRouter, status
 from sqlalchemy.orm import Session
-from models import Post
+from models import User
+from routers.users import get_current_user
+from schemas.posts import PaginatedPosts, PostOut, PostCreate
 
+from services import posts as post_service
+from schemas.posts import PostCreate, PostOut, PaginatedPosts
 
 from database import get_db
 
-class PostCreate(BaseModel):
-    title: str
-    content: str
-    user_id: int
-
-class PostOut(BaseModel):
-    id: int
-    user_id: Optional[int]
-    created_at: datetime
-    updated_at: datetime
-    class Config:
-        orm_mode = True
-
-
 router = APIRouter(tags=["micro-posts"])
 
-@router.get("/posts", response_model=List[PostOut])
-def list_post(page: int = Query(default=1, ge=1), 
-              limit: int = Query(default=10, ge=0, le=100),
-              query: str|None = Query(default=None, min_length=1),
-              db: Session = Depends(get_db),):
-
-    offset = (page - 1) * limit
-    posts_query = db.query(Post)
-    if query:
-        posts_query = posts_query.filter(
-            or_(
-                Post.title.ilike(f"%{query}%"),
-                Post.content.ilike(f"%{query}%")
-            )
-        )
-    posts = (
-        posts_query
-        .order_by(Post.created_at.desc())
-        .offset(offset)
-        .limit(limit)
-        .all()
+@router.get("/posts", response_model=PaginatedPosts)
+def list_post(
+    page: int = Query(default=1, ge=1), 
+    limit: int = Query(default=10, ge=1, le=100),
+    search: str|None = Query(default=None),
+    sort_by:Literal["created_at", "title"] = Query(default="created_at"),
+    order: Literal["asc", "desc"] = Query(default="desc"),
+    author_id: Optional[int] = Query(None),
+    db: Session = Depends(get_db),
+):
+    items, total = post_service.list_post(
+        db=db,
+        page=page,
+        limit=limit,
+        search=search,
+        sort_by=sort_by,
+        order=order,
+        author_id=author_id,
     )
-    return posts
+
+    has_next = (page * limit) < total
+    has_prev = page > 1
+
+    return PaginatedPosts(
+        items=items,
+        page=page,
+        limit=limit,
+        total=total,
+        has_next=has_next,
+        has_prev=has_prev,
+    )
+              
+
 
 @router.get("/post/{post_id}", response_model=PostOut)
 def get_post(post_id: int,  db: Session = Depends(get_db),):
-    post = (db.query(Post).filter((Post.id == post_id)).first())
+    post = post_service.get_post(db, post_id=post_id)
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
     return post
     
 @router.post("/post", response_model=PostOut)
-def create_post(post: PostCreate, db: Session = Depends(get_db)):
-    new_post = Post(title = post.title, content = post.content, user_id = None);
-    db.add(new_post)
-    db.commit()
-    db.refresh(new_post)
+def create_post(post: PostCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    new_post = post_service.create_post(
+        db, user_id=current_user.id, data=post
+    )
     return new_post
 
 @router.delete("/post/{post_id}")
 def delete_post(post_id:int, db: Session = Depends(get_db)):
-    post = db.query(Post).filter(Post.id == post_id).first()
-    if post is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Post not found")
-    
-    db.delete(post)
-    db.commit()
-    
-    return None
+    updated = post_service.update_post(db, post_id=post_id, data=payload)
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Not found",
+        )
+    return updated
 
 @router.put("/post/{post_id}", response_model=PostOut)
 def update_post(post_id: int, payload: PostCreate, db: Session = Depends(get_db)):
-    existing = db.query(Post).filter(Post.id == post_id).first()
-    if existing is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    
-    existing.title = payload.title
-    existing.content = payload.content
-
-    db.commit()
-    db.refresh(existing)
-    return existing
+    ok = post_service.delete_post(db, post_id=post_id)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
+        )
+    return None

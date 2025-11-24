@@ -16,6 +16,7 @@ class User(Base):
     password_hash:  Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+    
     posts: Mapped[List["Post"]] = relationship("Post", back_populates="user", cascade="all, delete-orphan",)
 
 
@@ -28,9 +29,11 @@ class Post(Base):
     created_at:  Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at:  Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     user_id: Mapped[Optional[int]] = mapped_column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    user: Mapped[Optional[User]] = relationship("User", back_populates="posts",)
     likes: Mapped[int] = mapped_column(Integer, default=0)
     is_published: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    user: Mapped[Optional[User]] = relationship("User", back_populates="posts",)
+    comments: Mapped[List["Comments"]] = relationship("Comments",  back_populates="post", cascade="all, delete-orphan")
 
 
 class Comments(Base):
@@ -40,3 +43,8 @@ class Comments(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
     post_id: Mapped[int] = mapped_column(Integer, ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, default=datetime.utcnow)
+
+    post: Mapped["Post"] = relationship("Post", back_populates="comments")
+    user: Mapped["User"] = relationship("User")

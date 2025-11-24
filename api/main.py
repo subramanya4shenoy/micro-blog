@@ -1,10 +1,14 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Query, Request
+from fastapi.exceptions import HTTPException
+from fastapi.responses import JSONResponse
 from database import check_db_connection
 import psycopg2
 import os
 from pydantic import BaseModel
-from routers import posts, users
+from routers import posts, users, comments
 from fastapi.middleware.cors import CORSMiddleware
+from errors import ErrorPayload, AppError
+import logging
 
 app = FastAPI()
 
@@ -21,6 +25,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError):
+    logging.warning(f"App error at {request.url}: {exc.code} - {exc.message}")
+
+    payload = ErrorPayload(
+        code = exc.code,
+        message=exc.message,
+        details=exc.details or {}
+    )
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": payload.model_dump()}
+    )
+
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
@@ -35,3 +54,4 @@ def db_health():
 
 app.include_router(posts.router)
 app.include_router(users.router)
+app.include_router(comments.router)

@@ -30,7 +30,7 @@ export default function HomePage() {
       }
 
       const data = await res.json();
-      setPosts(data.posts ?? []);
+      setPosts(data.items ?? []);
     } catch (err: any) {
       setError(err.message ?? "Something went wrong");
     } finally {
@@ -45,28 +45,39 @@ export default function HomePage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
+  
     if (!title.trim() || !content.trim()) {
       setError("Title and content are required");
       return;
     }
-
+  
+    const token = typeof window !== "undefined"
+      ? localStorage.getItem("access_token")
+      : null;
+  
+    if (!token) {
+      setError("You must be logged in to create a post");
+      return;
+    }
+  
     try {
       const res = await fetch(`${API_URL}/post`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // 👈 send JWT
         },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify({ title, content }), // 👈 no user_id here
       });
-
+  
       if (!res.ok) {
-        throw new Error("Failed to create post");
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Failed to create post");
       }
-
+  
       setTitle("");
       setContent("");
-      await fetchPosts(); // refresh list
+      await fetchPosts();
     } catch (err: any) {
       setError(err.message ?? "Something went wrong");
     }
