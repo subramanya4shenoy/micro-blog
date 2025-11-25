@@ -1,0 +1,26 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual envs (if any)
+venv/
+env/
+
+# macOS system files
+.DS_Store
+
+# Editor configs
+.vscode/
+.idea/
+
+# Bytecode build
+build/
+dist/
+
+# Python egg files
+*.egg-info/
+
+# Docker stuff
+*/__pycache__/
