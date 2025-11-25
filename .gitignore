@@ -1,26 +1,90 @@
-# Python cache
+# -----------------------------------
+# Python bytecode and cache
+# -----------------------------------
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.pdb
+*.pkl
+*.pyo
+.pytest_cache/
+*.pytest_cache/
 
-# Virtual envs (if any)
+# Ignore compiled python files inside all folders
+**/__pycache__/
+
+# -----------------------------------
+# Virtual environments
+# -----------------------------------
 venv/
 env/
+.venv/
 
-# macOS system files
+# -----------------------------------
+# FastAPI / Uvicorn artifacts
+# -----------------------------------
+*.log
+logs/
+
+# -----------------------------------
+# Docker
+# -----------------------------------
+# Local Docker Compose override files
+docker-compose.override.yml
+# Build cache, layers, artifacts
+docker-build/
+# Ignore pycache created inside containers
+api/__pycache__/
+infra/__pycache__/
+**/api/__pycache__/
+
+# -----------------------------------
+# System files
+# -----------------------------------
 .DS_Store
+Thumbs.db
 
+# -----------------------------------
 # Editor configs
+# -----------------------------------
 .vscode/
 .idea/
+*.code-workspace
 
-# Bytecode build
+# Cursor editor temp files
+.cursor/
+.cursor_tmp/
+
+# -----------------------------------
+# Distribution / packaging
+# -----------------------------------
 build/
 dist/
-
-# Python egg files
 *.egg-info/
+.eggs/
 
-# Docker stuff
-*/__pycache__/
+# -----------------------------------
+# Environment files
+# -----------------------------------
+.env
+*.env
+infra/env/
+api/.env
+
+# -----------------------------------
+# Database / storage
+# -----------------------------------
+*.sqlite3
+*.db
+*.sql
+pgdata/
+*pgdata/
+
+# -----------------------------------
+# Miscellaneous
+# -----------------------------------
+*.bak
+*.backup
+*.swp
+*~
