@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Query, Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
+from middleware.request_id import RequestIdMiddleware
+from logging_config import get_logger, setup_logging
 from database import check_db_connection
 import psycopg2
 import os
@@ -8,7 +10,9 @@ from pydantic import BaseModel
 from routers import posts, users, comments
 from fastapi.middleware.cors import CORSMiddleware
 from errors import ErrorPayload, AppError
-import logging
+
+setup_logging()
+logger = get_logger("main")
 
 app = FastAPI()
 
@@ -16,6 +20,8 @@ origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
+
+app.add_middleware(RequestIdMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,7 +33,7 @@ app.add_middleware(
 
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError):
-    logging.warning(f"App error at {request.url}: {exc.code} - {exc.message}")
+    logger.warning(f"App error at {request.url}: {exc.code} - {exc.message}")
 
     payload = ErrorPayload(
         code = exc.code,

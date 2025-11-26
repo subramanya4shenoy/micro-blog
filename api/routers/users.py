@@ -1,4 +1,5 @@
 import os
+from logging_config import get_logger
 from schemas.users import UserSignup, UserOut
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.orm import Session
@@ -8,9 +9,8 @@ from auth import hash_password, verify_password, create_access_token
 from database import get_db
 from models import User
 from services.users import get_user_by_identifier, is_existing_user, login_user, signup_user, get_current_user
-import logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger("routers.users")
 
 router = APIRouter()
 

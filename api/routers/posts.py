@@ -1,15 +1,15 @@
 from typing import Literal, Optional
 from fastapi import Depends, Query, HTTPException, APIRouter, status
+from logging_config import get_logger
 from sqlalchemy.orm import Session
 from models import User
 from routers.users import get_current_user
 from schemas.posts import PaginatedPosts, PostOut, PostCreate
-
 from services import posts as post_service
-from schemas.posts import PostCreate, PostOut, PaginatedPosts
 
 from database import get_db
 
+logger = get_logger("routers.posts")
 router = APIRouter(tags=["micro-posts"])
 
 @router.get("/posts", response_model=PaginatedPosts)
@@ -50,6 +50,7 @@ def list_post(
 def get_post(post_id: int,  db: Session = Depends(get_db),):
     post = post_service.get_post(db, post_id=post_id)
     if post is None:
+        logger.error("Post not found", extra={"event": "POST_NOT_FOUND", "post_id": post_id})
         raise HTTPException(status_code=404, detail="Post not found")
     return post
     
@@ -61,21 +62,32 @@ def create_post(post: PostCreate, db: Session = Depends(get_db), current_user: U
     return new_post
 
 @router.delete("/post/{post_id}")
-def delete_post(post_id:int, db: Session = Depends(get_db)):
-    updated = post_service.update_post(db, post_id=post_id, data=payload)
-    if updated is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Not found",
-        )
-    return updated
-
-@router.put("/post/{post_id}", response_model=PostOut)
-def update_post(post_id: int, payload: PostCreate, db: Session = Depends(get_db)):
+def delete_post(post_id: int, db: Session = Depends(get_db)):
     ok = post_service.delete_post(db, post_id=post_id)
     if not ok:
+        logger.warning(
+            "Delete failed, post not found",
+            extra={"post_id": post_id, "status_code": status.HTTP_404_NOT_FOUND},
+        )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Post not found",
         )
-    return None
+    logger.info("Post deleted", extra={"post_id": post_id})
+    return {"success": True}
+
+
+@router.put("/post/{post_id}", response_model=PostOut)
+def update_post(post_id: int, payload: PostCreate, db: Session = Depends(get_db)):
+    updated = post_service.update_post(db, post_id=post_id, data=payload)
+    if updated is None:
+        logger.warning(
+            "Update failed, post not found",
+            extra={"post_id": post_id, "status_code": status.HTTP_404_NOT_FOUND},
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
+        )
+    logger.info("Post updated", extra={"post_id": post_id})
+    return updated

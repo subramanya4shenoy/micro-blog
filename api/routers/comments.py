@@ -1,6 +1,7 @@
 from typing import List
 from datetime import datetime
-from services.comments import get_comments_from_db
+from logging_config import get_logger
+from services.comments import list_comments
 from schemas.comments import CommentOut, PaginatedComment, CommentCreate
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
@@ -9,6 +10,8 @@ from models import Comments, Post, User
 from sqlalchemy.orm import Session
 
 from database import get_db
+
+logger = get_logger("routers.comments")
 
 router = APIRouter(tags=["posts-comment"])
 
@@ -19,7 +22,12 @@ def get_comments(
     limit: int = Query(10, ge=1, le=100),
     db: Session = Depends(get_db)
 ):  
-    comments, total, has_next, has_prev = get_comments_from_db(db, post_id, page, limit)
+    comments, total, has_next, has_prev = list_comments(db, post_id, page, limit)
+
+    if comments is None:
+        logger.error(f"Post not found: id={post_id}")
+        raise HTTPException(status_code=404, detail=str(e))
+        
     return PaginatedComment(
         items=comments,
         page=page,
@@ -38,6 +46,8 @@ def create_comment(
 ):
     try:
         comment = create_comment(db, post_id, payload.content, current_user.id)
+        logger.info(status_code=200, detail = 'success')
         return comment
     except Exception as e:
+        logger.error(f"Post not found: id={post_id}")
         raise HTTPException(status_code=404, detail=str(e))
