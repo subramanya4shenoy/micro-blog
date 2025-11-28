@@ -5,7 +5,7 @@ from services.comments import list_comments
 from schemas.comments import CommentOut, PaginatedComment, CommentCreate
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
-from routers.users import get_current_user
+from services.users import get_current_user
 from models import Comments, Post, User
 from sqlalchemy.orm import Session
 

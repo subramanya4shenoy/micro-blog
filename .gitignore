@@ -8,6 +8,7 @@ __pycache__/
 *.pdb
 *.pkl
 *.pyo
+*.pyc
 .pytest_cache/
 *.pytest_cache/
 

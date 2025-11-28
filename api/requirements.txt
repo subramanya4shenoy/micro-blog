@@ -11,3 +11,5 @@ python-jose[cryptography]==3.3.0
 SQLAlchemy==2.0.23
 alembic==1.13.1
 python-multipart
+fastapi-limiter
+redis>=4.5.0

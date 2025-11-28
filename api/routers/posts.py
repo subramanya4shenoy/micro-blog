@@ -3,16 +3,16 @@ from fastapi import Depends, Query, HTTPException, APIRouter, status
 from logging_config import get_logger
 from sqlalchemy.orm import Session
 from models import User
-from routers.users import get_current_user
+from services.users import get_current_user
 from schemas.posts import PaginatedPosts, PostOut, PostCreate
 from services import posts as post_service
-
+from fastapi_limiter.depends import RateLimiter
 from database import get_db
 
 logger = get_logger("routers.posts")
 router = APIRouter(tags=["micro-posts"])
 
-@router.get("/posts", response_model=PaginatedPosts)
+@router.get("/posts", response_model=PaginatedPosts, dependencies=[Depends(RateLimiter(times=10, seconds=60))])
 def list_post(
     page: int = Query(default=1, ge=1), 
     limit: int = Query(default=10, ge=1, le=100),
@@ -54,7 +54,7 @@ def get_post(post_id: int,  db: Session = Depends(get_db),):
         raise HTTPException(status_code=404, detail="Post not found")
     return post
     
-@router.post("/post", response_model=PostOut)
+@router.post("/post", response_model=PostOut, dependencies=[Depends(RateLimiter(times=3, seconds=60))])
 def create_post(post: PostCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     new_post = post_service.create_post(
         db, user_id=current_user.id, data=post

@@ -4,6 +4,9 @@ services:
       context: ../api
       dockerfile: Dockerfile
     container_name: microblog_api
+    depends_on:
+      - redis
+      - db
     ports:
       - "8000:8000"
     env_file:
@@ -54,6 +57,22 @@ services:
       - grafana-storage:/var/lib/grafana
     depends_on:
       - loki
+
+  redis:
+    image: redis:7-alpine
+    container_name: microblog_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    container_name: redis-insight
+    ports:
+      - "5540:5540"
+    depends_on:
+      - redis
+    restart: always
 
 volumes:
   microblog_db_data:

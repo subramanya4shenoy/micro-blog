@@ -1,15 +1,16 @@
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from middleware.request_id import RequestIdMiddleware
 from logging_config import get_logger, setup_logging
 from database import check_db_connection
-import psycopg2
-import os
-from pydantic import BaseModel
 from routers import posts, users, comments
 from fastapi.middleware.cors import CORSMiddleware
 from errors import ErrorPayload, AppError
+from fastapi_limiter import FastAPILimiter
+import redis.asyncio as redis
+
+import os
 
 setup_logging()
 logger = get_logger("main")
@@ -30,6 +31,17 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting up rate limiter")
+    r = redis.from_url("redis://redis:6379", encoding="utf-8", decode_responses=True)
+    await FastAPILimiter.init(r)
+    logger.info("Rate limiter initialized")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down rate limiter")
 
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError):
