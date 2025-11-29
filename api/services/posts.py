@@ -1,11 +1,15 @@
 from typing import Optional, Tuple, List
 from models import Post #db 
+import json
+from fastapi.encoders import jsonable_encoder
 
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, asc, desc
 
-from schemas.posts import PostCreate
+from schemas.posts import PostCreate, PostOut
+from redis import Redis
 
+cache = Redis(host="redis", port=6379, decode_responses=True)
 
 def list_post(
     db: Session,
@@ -17,6 +21,22 @@ def list_post(
     order: str,
     author_id: Optional[int]
 ) -> Tuple[List[Post], int]:
+    """ List posts with pagination and search """
+    cache_key = (
+        f"posts:page={page}"
+        f":limit={limit}"
+        f":search={search or ''}"
+        f":sort_by={sort_by}"
+        f":order={order}"
+        f":author={author_id or ''}"
+    )
+
+    cached = cache.get(cache_key)
+
+    if cached:
+        data = json.loads(cached)
+        return data["items"], data["total"]
+    
     offset = (page - 1) * limit
     query = db.query(Post)
 
@@ -41,8 +61,15 @@ def list_post(
     
     total = query.count()
     items = query.offset(offset).limit(limit).all()
-    return items, total
 
+    items_data = [
+        PostOut.model_validate(post, from_attributes=True).model_dump()
+        for post in items
+    ]
+    payload = jsonable_encoder({"items": items_data, "total": total})
+    cache.set(cache_key, json.dumps(payload), ex=60)
+
+    return items_data, total
 
 def get_post(db: Session, post_id: int) -> Optional[Post]:
     return db.query(Post).filter(Post.id == post_id).first()
@@ -68,7 +95,6 @@ def update_post(db: Session, *, post_id: int, data: PostCreate) -> Optional[Post
     db.commit()
     db.refresh(post)
     return post
-
 
 def delete_post(db: Session, *, post_id: int) -> bool:
     post = get_post(db, post_id)
