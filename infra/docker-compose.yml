@@ -73,6 +73,20 @@ services:
     depends_on:
       - redis
     restart: always
+  
+  worker:
+    build:
+      context: ../api
+      dockerfile: Dockerfile
+    container_name: microblog_worker
+    command: celery -A celery_app.celery_app worker --loglevel=info
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ../api:/api
+    env_file:
+      - ./env/dev.env
 
 volumes:
   microblog_db_data:

@@ -13,3 +13,4 @@ alembic==1.13.1
 python-multipart
 fastapi-limiter
 redis>=4.5.0
+celery[redis]

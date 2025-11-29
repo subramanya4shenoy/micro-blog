@@ -8,6 +8,7 @@ from schemas.posts import PaginatedPosts, PostOut, PostCreate
 from fastapi_limiter.depends import RateLimiter
 from database import get_db
 from services import posts as post_service
+from tasks.notifications import send_new_post_notification
 
 logger = get_logger("routers.posts")
 router = APIRouter(tags=["micro-posts"])
@@ -59,7 +60,9 @@ def create_post(post: PostCreate, db: Session = Depends(get_db), current_user: U
     new_post = post_service.create_post(
         db, user_id=current_user.id, data=post
     )
+    send_new_post_notification.delay(new_post.id, new_post.title)
     return new_post
+
 
 @router.delete("/post/{post_id}")
 def delete_post(post_id: int, db: Session = Depends(get_db)):
