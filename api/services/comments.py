@@ -1,6 +1,6 @@
 
 
-from models import Comments
+from models import Comments, Post
 from sqlalchemy.orm import Session
 
 def list_comments(db: Session, post_id: int, page: int, limit: int):
